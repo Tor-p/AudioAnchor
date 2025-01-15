@@ -474,6 +474,21 @@ public class PlayActivity extends AppCompatActivity {
         startService();
         LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(BROADCAST_PLAY_AUDIO));
         mStopServiceOnDestroy = false;
+
+        boolean sleetTimerAlwaysActive =  mSharedPreferences.getBoolean(getString(R.string.settings_sleep_always_active_key), Boolean.getBoolean(getString(R.string.settings_sleep_always_active_default)));
+
+        if(sleetTimerAlwaysActive && mSleepCountDownTV != null){
+            if(mLastSleepTime <= 0) {
+                showSleepTimerDialog();
+            }
+            else {
+                if (mPlayer != null) {
+                    mPlayer.startSleepTimer(mLastSleepTime, mSleepCountDownTV);
+                } else {
+                    startSleepTimer(mLastSleepTime);
+                }
+            }
+        }
     }
 
     private void pauseAudio() {

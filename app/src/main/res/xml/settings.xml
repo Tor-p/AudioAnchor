@@ -134,6 +134,10 @@
             android:defaultValue="@string/settings_continue_until_end_default"
             android:key="@string/settings_continue_until_end_key"
             android:title="@string/settings_continue_until_end_label" />
+        <SwitchPreference
+            android:defaultValue="@string/settings_sleep_always_active_default"
+            android:key="@string/settings_sleep_always_active_key"
+            android:title="@string/settings_sleep_always_active_label" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/settings_bookmarks_category">
