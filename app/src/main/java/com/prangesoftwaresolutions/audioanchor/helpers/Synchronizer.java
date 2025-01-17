@@ -68,12 +68,17 @@ public class Synchronizer {
         File dir = new File(directory.getPath());
         if (dir.exists() && dir.isDirectory()) {
             if (directory.getType() == Directory.Type.PARENT_DIR) {
-                // Add all subdirectories if directory is a parent directory
+                /*// Add all subdirectories if directory is a parent directory
                 String[] subDirArr = dir.list(filter);
                 for (String subDirString : subDirArr) {
                     String absolutePath = new File(directory.getPath(), subDirString).getAbsolutePath();
-                    newAlbumPaths.add(absolutePath);
-                }
+                    if(GetAudioFileList(absolutePath).length > 0) {
+                        newAlbumPaths.add(absolutePath);
+                    }
+                    //Directory newDirectory = new Directory(absolutePath, Directory.Type.PARENT_DIR);
+                    //updateAlbumTable(newDirectory);
+                }*/
+                newAlbumPaths = GetSubdirsWithAudioFiles(directory, filter);
             } else if (dir.canRead() && (showHidden || !dir.getName().startsWith("."))) {
                 // Add directory if it is a subdirectory
                 newAlbumPaths.add(dir.getAbsolutePath());
@@ -132,33 +137,8 @@ public class Synchronizer {
      * match the audiofiles table entries
      */
      private void updateAudioFileTable(String albumPath, long albumId) {
-        // Get all audio files in the album.
-        FilenameFilter filter = (dir, filename) -> {
-            File sel = new File(dir, filename);
-
-            // Don't show files starting with a dot (hidden files) unless the option is set
-            boolean showHidden = mPrefManager.getBoolean(mContext.getString(R.string.settings_show_hidden_key), Boolean.getBoolean(mContext.getString(R.string.settings_show_hidden_default)));
-            if (!showHidden && sel.getName().startsWith(".")) {
-                return false;
-            }
-
-            // Only list files that are readable and audio files
-            String[] supportedFormats = {".mp3", ".wma", ".ogg", ".wav", ".flac", ".m4a", ".m4b", ".aac", ".3gp", ".gsm", ".mid", ".mkv", ".opus"};
-            for (String format : supportedFormats) {
-                if (sel.getName().endsWith(format)) return true;
-            }
-            return false;
-        };
-
         // Get all files in the album directory.
-        String[] fileList;
-        File albumDir = new File(albumPath);
-
-        if (albumDir.exists()) {
-            fileList = albumDir.list(filter);
-        } else {
-            fileList = new String[]{};
-        }
+        String[] fileList = GetAudioFileList(albumPath);
 
         if (fileList == null) return;
 
@@ -196,4 +176,52 @@ public class Synchronizer {
             }
         }
     }
+
+    private String[] GetAudioFileList(String albumPath) {
+        // Get all audio files in the album.
+        FilenameFilter filter = (dir, filename) -> {
+            File sel = new File(dir, filename);
+
+            // Don't show files starting with a dot (hidden files) unless the option is set
+            boolean showHidden = mPrefManager.getBoolean(mContext.getString(R.string.settings_show_hidden_key), Boolean.getBoolean(mContext.getString(R.string.settings_show_hidden_default)));
+            if (!showHidden && sel.getName().startsWith(".")) {
+                return false;
+            }
+
+            // Only list files that are readable and audio files
+            String[] supportedFormats = {".mp3", ".wma", ".ogg", ".wav", ".flac", ".m4a", ".m4b", ".aac", ".3gp", ".gsm", ".mid", ".mkv", ".opus"};
+            for (String format : supportedFormats) {
+                if (sel.getName().endsWith(format)) return true;
+            }
+            return false;
+        };
+
+        // Get all files in the album directory.
+        String[] fileList;
+        File albumDir = new File(albumPath);
+
+        if (albumDir.exists()) {
+            fileList = albumDir.list(filter);
+        } else {
+            fileList = new String[]{};
+        }
+
+        return fileList;
+     }
+
+     public ArrayList<String> GetSubdirsWithAudioFiles(Directory directory, FilenameFilter filter) {
+         File dir = new File(directory.getPath());
+         ArrayList<String> newAlbumPaths = new ArrayList();
+         String[] subDirArr = dir.list(filter);
+         for (String subDirString : subDirArr) {
+             String absolutePath = new File(directory.getPath(), subDirString).getAbsolutePath();
+             if (GetAudioFileList(absolutePath).length > 0) {
+                 newAlbumPaths.add(absolutePath);
+             }
+             Directory newDirectory = new Directory(absolutePath, Directory.Type.PARENT_DIR);
+             newAlbumPaths.addAll(GetSubdirsWithAudioFiles(newDirectory, filter));
+         }
+
+             return newAlbumPaths;
+     }
 }
