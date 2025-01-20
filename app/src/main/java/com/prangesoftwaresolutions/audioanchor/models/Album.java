@@ -17,6 +17,7 @@ public class Album {
     private long mID = -1;
     private final String mTitle;
     private Directory mDirectory;
+    private String mSubdir;
     private String mCoverPath;
     private long mLastPlayedID;
 
@@ -24,27 +25,31 @@ public class Album {
             AnchorContract.AlbumEntry._ID,
             AnchorContract.AlbumEntry.COLUMN_TITLE,
             AnchorContract.AlbumEntry.COLUMN_DIRECTORY,
+            AnchorContract.AlbumEntry.COLUMN_SUBDIR,
             AnchorContract.AlbumEntry.COLUMN_COVER_PATH,
             AnchorContract.AlbumEntry.COLUMN_LAST_PLAYED
     };
 
-    public Album(long id, String title, Directory directory, String coverPath, long lastPlayed) {
+    public Album(long id, String title, Directory directory, String subdir, String coverPath, long lastPlayed) {
         mID = id;
         mTitle = title;
         mDirectory = directory;
+        mSubdir = subdir;
         mCoverPath = coverPath;
         mLastPlayedID = lastPlayed;
     }
 
-    public Album(String title, Directory directory, String coverPath) {
+    public Album(String title, Directory directory, String subdir, String coverPath) {
         mTitle = title;
         mDirectory = directory;
+        mSubdir = subdir;
         mCoverPath = coverPath;
     }
 
-    public Album(String title, Directory directory) {
+    public Album(String title, Directory directory, String subdir) {
         mTitle = title;
         mDirectory = directory;
+        mSubdir = subdir;
         updateAlbumCover();
     }
 
@@ -79,7 +84,11 @@ public class Album {
 
         File albumFile;
         if (mDirectory.getType() == Directory.Type.PARENT_DIR) {
-            albumFile = new File(mDirectory.getPath(), mTitle);
+            if(mSubdir.isEmpty()) {
+                albumFile = new File(mDirectory.getPath(), mTitle);
+            } else {
+                albumFile = new File(mDirectory.getPath(), mSubdir + File.separator + mTitle);
+            }
         } else {
             albumFile = new File(mDirectory.getPath());
         }
@@ -155,6 +164,7 @@ public class Album {
         ContentValues values = new ContentValues();
         values.put(AnchorContract.AlbumEntry.COLUMN_TITLE, mTitle);
         values.put(AnchorContract.AlbumEntry.COLUMN_DIRECTORY, mDirectory.getID());
+        values.put(AnchorContract.AlbumEntry.COLUMN_SUBDIR, mSubdir);
         values.put(AnchorContract.AlbumEntry.COLUMN_COVER_PATH, mCoverPath);
         values.put(AnchorContract.AlbumEntry.COLUMN_LAST_PLAYED, mLastPlayedID);
         return values;
@@ -217,12 +227,13 @@ public class Album {
         long id = c.getLong(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry._ID));
         String title = c.getString(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_TITLE));
         long directoryId = c.getLong(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_DIRECTORY));
+        String subdir = c.getString(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_SUBDIR));
         Directory directory = Directory.getDirectoryByID(context, directoryId);
         String coverPath = c.getString(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_COVER_PATH));
         long lastPlayed = -1;
         if (!c.isNull(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_LAST_PLAYED))) {
             lastPlayed = c.getLong(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_LAST_PLAYED));
         }
-        return new Album(id, title, directory, coverPath, lastPlayed);
+        return new Album(id, title, directory, subdir, coverPath, lastPlayed);
     }
 }

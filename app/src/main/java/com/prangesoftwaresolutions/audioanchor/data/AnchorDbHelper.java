@@ -22,7 +22,7 @@ public class AnchorDbHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "audio_anchor.db";
 
     // Database version. Must be incremented when the database schema is changed.
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
 
     private static AnchorDbHelper mInstance = null;
     private final Context mContext;
@@ -48,6 +48,7 @@ public class AnchorDbHelper extends SQLiteOpenHelper {
                 + AnchorContract.AlbumEntry._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
                 + AnchorContract.AlbumEntry.COLUMN_TITLE + " TEXT NOT NULL, "
                 + AnchorContract.AlbumEntry.COLUMN_DIRECTORY + " INTEGER, "
+                + AnchorContract.AlbumEntry.COLUMN_SUBDIR + " TEXT, "
                 + AnchorContract.AlbumEntry.COLUMN_LAST_PLAYED + " INTEGER, "
                 + AnchorContract.AlbumEntry.COLUMN_COVER_PATH + " TEXT);";
 
@@ -116,6 +117,11 @@ public class AnchorDbHelper extends SQLiteOpenHelper {
                 db.update(AnchorContract.AlbumEntry.TABLE_NAME, albumValues, selection, selectionArgs);
             }
         }
+        if(i < 4) {
+            // Add subdir to album table
+            String SQL_ADD_SUBDIR = "ALTER TABLE " + AnchorContract.AlbumEntry.TABLE_NAME + " ADD COLUMN " + AnchorContract.AlbumEntry.COLUMN_SUBDIR + " TEXT";
+            db.execSQL(SQL_ADD_SUBDIR);
+        }
     }
 
     static AnchorDbHelper getInstance(Context context) {
@@ -144,11 +150,12 @@ public class AnchorDbHelper extends SQLiteOpenHelper {
             long id = c.getLong(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry._ID));
             String title = c.getString(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_TITLE));
             String coverPath = c.getString(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_COVER_PATH));
+            String subdir = c.getString(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_SUBDIR));
             long lastPlayed = -1;
             if (!c.isNull(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_LAST_PLAYED))) {
                 lastPlayed = c.getLong(c.getColumnIndexOrThrow(AnchorContract.AlbumEntry.COLUMN_LAST_PLAYED));
             }
-            Album album = new Album(id, title, directory, coverPath, lastPlayed);
+            Album album = new Album(id, title, directory, subdir, coverPath, lastPlayed);
             albums.add(album);
         }
         c.close();

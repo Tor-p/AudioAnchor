@@ -70,6 +70,7 @@ public class AnchorContract {
         public static final String COLUMN_TITLE = "title";
         public static final String COLUMN_COVER_PATH = "cover_path";
         public static final String COLUMN_DIRECTORY = "directory";
+        public static final String COLUMN_SUBDIR = "subdir";
         public static final String COLUMN_LAST_PLAYED = "last_played";
     }
 

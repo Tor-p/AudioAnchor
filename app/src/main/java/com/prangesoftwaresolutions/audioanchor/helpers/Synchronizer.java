@@ -16,6 +16,7 @@ import com.prangesoftwaresolutions.audioanchor.models.Directory;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
@@ -92,12 +93,20 @@ public class Synchronizer {
             oldAlbumPaths.put(path, album);
         }
 
+        // Get directory path info
+        String dirPath = directory.getPath();
+        int dirPathCount = dirPath.length();
+
         // Insert new albums into the database
         for (String newAlbumPath : newAlbumPaths) {
             long id;
             if (!oldAlbumPaths.containsKey(newAlbumPath)) {
                 String albumTitle = new File(newAlbumPath).getName();
-                Album album = new Album(albumTitle, directory);
+                //Get album sub dir path if any
+                String subDirPath = new String();
+                if(dirPathCount + 1 < (newAlbumPath.length() - albumTitle.length()) - 1)
+                    subDirPath = newAlbumPath.substring(dirPathCount + 1, (newAlbumPath.length() - albumTitle.length()) - 1);
+                Album album = new Album(albumTitle, directory, subDirPath);
                 id = album.insertIntoDB(mContext);
             } else {
                 Album album = oldAlbumPaths.get(newAlbumPath);
