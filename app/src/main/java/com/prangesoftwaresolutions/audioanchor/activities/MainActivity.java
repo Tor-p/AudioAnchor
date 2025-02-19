@@ -81,6 +81,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
     // Permission request
     private static final int PERMISSION_REQUEST_READ_EXTERNAL_STORAGE = 0;
+    private static final int PERMISSION_REQUEST_READ_MEDIA_AUDIO = 3;
     static final int PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE_DELETE = 1;
     static final int PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE_EXPORT = 2;
 
@@ -239,8 +240,8 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         });
 
         // Check if app has the necessary permissions
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSION_REQUEST_READ_EXTERNAL_STORAGE);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_MEDIA_AUDIO}, PERMISSION_REQUEST_READ_MEDIA_AUDIO);
         } else {
             mListView.setAdapter(mCursorAdapter);
         }
@@ -259,7 +260,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
         // This needs to be a receiver for global broadcasts, as the deleteIntent is broadcast by
         // Android's notification framework
-        registerReceiver(mRemoveNotificationReceiver, new IntentFilter(MediaPlayerService.BROADCAST_REMOVE_NOTIFICATION));
+        registerReceiver(mRemoveNotificationReceiver, new IntentFilter(MediaPlayerService.BROADCAST_REMOVE_NOTIFICATION), RECEIVER_NOT_EXPORTED);
 
         // Extract version code and version name of the app
         PackageInfo pInfo = null;
@@ -383,6 +384,17 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         switch (requestCode) {
+            case PERMISSION_REQUEST_READ_MEDIA_AUDIO: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length <= 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                    // Permission was not granted
+                    Toast.makeText(getApplicationContext(), R.string.permission_denied, Toast.LENGTH_LONG).show();
+                    finish();
+                } else {
+                    mListView.setAdapter(mCursorAdapter);
+                }
+                break;
+            }
             case PERMISSION_REQUEST_READ_EXTERNAL_STORAGE: {
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length <= 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
@@ -429,8 +441,8 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         switch (item.getItemId()) {
             case R.id.menu_choose_directory:
                 // Check if app has the necessary permissions
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSION_REQUEST_READ_EXTERNAL_STORAGE);
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_MEDIA_AUDIO}, PERMISSION_REQUEST_READ_MEDIA_AUDIO);
                 } else {
                     Intent directoryIntent = new Intent(this, DirectoryActivity.class);
                     startActivity(directoryIntent);

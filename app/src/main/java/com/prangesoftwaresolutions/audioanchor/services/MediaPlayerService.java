@@ -14,6 +14,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
 import android.hardware.SensorManager;
 import android.media.AudioAttributes;
@@ -35,6 +36,7 @@ import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.TextView;
@@ -57,6 +59,8 @@ import com.prangesoftwaresolutions.audioanchor.utils.StorageUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC;
 
@@ -126,7 +130,9 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     // Handle incoming phone calls
     private boolean ongoingCall = false;
     private PhoneStateListener phoneStateListener;
+    private TelephonyCallback callStateListener;
     private TelephonyManager telephonyManager;
+    private ExecutorService telephonyPool;
 
     // Shared Preferences
     SharedPreferences mSharedPreferences;
@@ -146,6 +152,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
 
         // Manage playback for incoming calls
+        telephonyPool = Executors.newFixedThreadPool(2);
         callStateListener();
 
         // Register system wide BroadcastReceiver for changes in audio outputs
@@ -154,7 +161,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         // Register BroadcastReceivers for broadcasts from PlayActivity
         mBroadcaster.registerReceiver(mPlayAudioReceiver, new IntentFilter(PlayActivity.BROADCAST_PLAY_AUDIO));
         mBroadcaster.registerReceiver(mPauseAudioReceiver, new IntentFilter(PlayActivity.BROADCAST_PAUSE_AUDIO));
-        registerReceiver(mRemoveNotificationReceiver, new IntentFilter(BROADCAST_REMOVE_NOTIFICATION));
+        registerReceiver(mRemoveNotificationReceiver, new IntentFilter(BROADCAST_REMOVE_NOTIFICATION), RECEIVER_NOT_EXPORTED);
 
         // Notification manager
          mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -531,37 +538,71 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private void callStateListener() {
         // Get the telephony manager
         telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-        // Starting listening for PhoneState changes
-        phoneStateListener = new PhoneStateListener() {
-            @Override
-            public void onCallStateChanged(int state, String incomingNumber) {
-                switch (state) {
-                    // If at least one call exists or the phone is ringing pause the MediaPlayer
-                    case TelephonyManager.CALL_STATE_OFFHOOK:
-                    case TelephonyManager.CALL_STATE_RINGING:
-                        if (mMediaPlayer != null && !ongoingCall) {
-                            resumeAfterCall = mMediaPlayer.isPlaying();
-                            pause();
-                            ongoingCall = true;
-                        }
-                        break;
-                    case TelephonyManager.CALL_STATE_IDLE:
-                        // Phone idle. Start playing.
-                        if (mMediaPlayer != null) {
-                            if (ongoingCall) {
-                                ongoingCall = false;
-                                if (resumeAfterCall) {
-                                    play();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            callStateListener = new TelephonyCallback() {
+                //@Override
+                public void onCallStateChanged(int state) {
+                    switch (state) {
+                        // If at least one call exists or the phone is ringing pause the MediaPlayer
+                        case TelephonyManager.CALL_STATE_OFFHOOK:
+                        case TelephonyManager.CALL_STATE_RINGING:
+                            if (mMediaPlayer != null && !ongoingCall) {
+                                resumeAfterCall = mMediaPlayer.isPlaying();
+                                pause();
+                                ongoingCall = true;
+                            }
+                            break;
+                        case TelephonyManager.CALL_STATE_IDLE:
+                            // Phone idle. Start playing.
+                            if (mMediaPlayer != null) {
+                                if (ongoingCall) {
+                                    ongoingCall = false;
+                                    if (resumeAfterCall) {
+                                        play();
+                                    }
                                 }
                             }
-                        }
-                        resumeAfterCall = false;
-                        break;
+                            resumeAfterCall = false;
+                            break;
+                    }
                 }
-            }
-        };
-        // Register the listener with the telephony manager. Listen for changes to the device call state.
-        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
+            };
+
+            telephonyManager.registerTelephonyCallback(telephonyPool, (TelephonyCallback) callStateListener);
+        } else {
+            // Starting listening for PhoneState changes
+            phoneStateListener = new PhoneStateListener() {
+                @Override
+                public void onCallStateChanged(int state, String incomingNumber) {
+                    switch (state) {
+                        // If at least one call exists or the phone is ringing pause the MediaPlayer
+                        case TelephonyManager.CALL_STATE_OFFHOOK:
+                        case TelephonyManager.CALL_STATE_RINGING:
+                            if (mMediaPlayer != null && !ongoingCall) {
+                                resumeAfterCall = mMediaPlayer.isPlaying();
+                                pause();
+                                ongoingCall = true;
+                            }
+                            break;
+                        case TelephonyManager.CALL_STATE_IDLE:
+                            // Phone idle. Start playing.
+                            if (mMediaPlayer != null) {
+                                if (ongoingCall) {
+                                    ongoingCall = false;
+                                    if (resumeAfterCall) {
+                                        play();
+                                    }
+                                }
+                            }
+                            resumeAfterCall = false;
+                            break;
+                    }
+                }
+            };
+            // Register the listener with the telephony manager. Listen for changes to the device call state.
+            telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
+        }
     }
 
     /*
@@ -579,7 +620,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
         mediaButtonIntent.setComponent(mediaButtonReceiverComponentName);
 
-        PendingIntent mediaButtonReceiverPendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, mediaButtonIntent, 0);
+        PendingIntent mediaButtonReceiverPendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, mediaButtonIntent, PendingIntent.FLAG_IMMUTABLE);
 
         // Create a new MediaSession
         mediaSession = new MediaSessionCompat(getApplicationContext(), "AudioAnchor", mediaButtonReceiverComponentName, mediaButtonReceiverPendingIntent);
@@ -698,11 +739,11 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         Intent startActivityIntent = new Intent(this, PlayActivity.class);
         startActivityIntent.putExtra(getString(R.string.curr_audio_id), mActiveAudio.getID());
         PendingIntent launchIntent = PendingIntent.getActivity(this, 0,
-                startActivityIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                startActivityIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         // Set up intent to stop service when notification is removed
         Intent intent = new Intent(BROADCAST_REMOVE_NOTIFICATION);
-        PendingIntent deleteIntent = PendingIntent.getBroadcast(this.getApplicationContext(), 0, intent, 0);
+        PendingIntent deleteIntent = PendingIntent.getBroadcast(this.getApplicationContext(), 0, intent, PendingIntent.FLAG_IMMUTABLE);
 
         // Create a new notification
         mNotificationBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -738,7 +779,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
         Notification notification = mNotificationBuilder.build();
         if (isPlaying()) {
-            startForeground(NOTIFICATION_ID, notification);
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         } else {
             mNotificationManager.notify(NOTIFICATION_ID, notification);
         }
@@ -750,23 +791,23 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             case 0:
                 // Play
                 playbackActionIntent.setAction(ACTION_PLAY);
-                return PendingIntent.getService(this, actionNumber, playbackActionIntent, 0);
+                return PendingIntent.getService(this, actionNumber, playbackActionIntent, PendingIntent.FLAG_IMMUTABLE);
             case 1:
                 // Pause
                 playbackActionIntent.setAction(ACTION_PAUSE);
-                return PendingIntent.getService(this, actionNumber, playbackActionIntent, 0);
+                return PendingIntent.getService(this, actionNumber, playbackActionIntent, PendingIntent.FLAG_IMMUTABLE);
             case 2:
                 // Skip forward
                 playbackActionIntent.setAction(ACTION_FORWARD);
-                return PendingIntent.getService(this, actionNumber, playbackActionIntent, 0);
+                return PendingIntent.getService(this, actionNumber, playbackActionIntent, PendingIntent.FLAG_IMMUTABLE);
             case 3:
                 // Skip backward
                 playbackActionIntent.setAction(ACTION_BACKWARD);
-                return PendingIntent.getService(this, actionNumber, playbackActionIntent, 0);
+                return PendingIntent.getService(this, actionNumber, playbackActionIntent, PendingIntent.FLAG_IMMUTABLE);
             case 4:
                 // Set bookmark
                 playbackActionIntent.setAction(ACTION_BOOKMARK);
-                return PendingIntent.getService(this, actionNumber, playbackActionIntent, 0);
+                return PendingIntent.getService(this, actionNumber, playbackActionIntent, PendingIntent.FLAG_IMMUTABLE);
             default:
                 break;
         }

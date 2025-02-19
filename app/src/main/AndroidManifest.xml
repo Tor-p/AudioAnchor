@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <uses-feature
@@ -74,7 +75,8 @@
                 android:value="com.prangesoftwaresolutions.audioanchor.activities.MainActivity" />
         </activity>
 
-        <service android:name=".services.MediaPlayerService" />
+        <service android:name=".services.MediaPlayerService"
+            android:foregroundServiceType="mediaPlayback"/>
 
         <receiver android:name=".receivers.MediaButtonIntentReceiver"
             android:exported="true">

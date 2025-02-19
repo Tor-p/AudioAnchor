@@ -282,7 +282,7 @@ public class AlbumActivity extends AppCompatActivity implements LoaderManager.Lo
 
         // This needs to be a receiver for global broadcasts, as the deleteIntent is broadcast by
         // Android's notification framework
-        registerReceiver(mRemoveNotificationReceiver, new IntentFilter(MediaPlayerService.BROADCAST_REMOVE_NOTIFICATION));
+        registerReceiver(mRemoveNotificationReceiver, new IntentFilter(MediaPlayerService.BROADCAST_REMOVE_NOTIFICATION), RECEIVER_NOT_EXPORTED);
     }
 
     @Override
